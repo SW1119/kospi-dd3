@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#ffffff">
+<title>KOSPI DD Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;600;900&display=swap');
+
+:root {
+  --bg:     #f5f6fa;
+  --card:   #ffffff;
+  --border: #e0e4ef;
+  --text:   #1a1a2e;
+  --muted:  #8890aa;
+  --green:  #00aa55;
+  --yellow: #e6a800;
+  --orange: #e05c00;
+  --red:    #d01030;
+  --blue:   #1a5fd4;
+  --accent: #00aa55;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:16px; }
+.wrap { max-width:700px; margin:0 auto; padding:24px 16px 60px; }
+
+header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:16px; border-bottom:2px solid var(--border); }
+.logo { font-family:'Space Mono',monospace; font-size:15px; font-weight:700; letter-spacing:.08em; }
+.logo span { color:var(--blue); }
+#clock { font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); text-align:right; line-height:1.7; }
+
+.pos-card { background:var(--card); border:2px solid var(--border); border-radius:12px; padding:24px 20px 20px; margin-bottom:12px; position:relative; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,.06); }
+.pos-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:var(--accent); transition:background .4s; }
+.pos-label { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.18em; color:var(--muted); text-transform:uppercase; margin-bottom:10px; }
+.pos-row { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+.pos-num { font-family:'Space Mono',monospace; font-size:clamp(60px,16vw,90px); font-weight:700; line-height:1; color:var(--accent); transition:color .4s; }
+.pos-unit { font-size:22px; color:var(--muted); }
+.pos-desc { font-size:15px; color:var(--muted); margin-bottom:16px; }
+.stage-badge { display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border-radius:6px; font-size:14px; font-weight:700; border:2px solid; transition:all .4s; }
+.dot { width:8px; height:8px; border-radius:50%; animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+.dd-bar { display:flex; align-items:center; gap:10px; margin-top:18px; padding-top:16px; border-top:1px solid var(--border); }
+.dd-bar-lbl { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); flex-shrink:0; line-height:1.6; }
+.dd-dots { display:flex; gap:5px; }
+.dd-dot { width:28px; height:28px; border-radius:4px; border:2px solid var(--border); background:transparent; transition:all .3s; }
+.dd-dot.s1 { background:var(--yellow); border-color:transparent; }
+.dd-dot.s2 { background:var(--orange); border-color:transparent; }
+.dd-dot.s3 { background:var(--red);    border-color:transparent; }
+.dd-num { font-family:'Space Mono',monospace; font-size:30px; font-weight:700; margin-left:6px; color:var(--accent); transition:color .4s; }
+.dd-den { font-size:15px; color:var(--muted); }
+
+.metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px; }
+.metric { background:var(--card); border:2px solid var(--border); border-radius:10px; padding:14px 12px; box-shadow:0 1px 6px rgba(0,0,0,.04); }
+.m-lbl { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:7px; }
+.m-val { font-family:'Space Mono',monospace; font-size:20px; font-weight:700; line-height:1; }
+.m-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+
+.sec { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.15em; color:var(--muted); text-transform:uppercase; margin:20px 0 9px; display:flex; align-items:center; gap:10px; }
+.sec::after { content:''; flex:1; height:1px; background:var(--border); }
+
+.sg { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px; }
+.sg-item { background:var(--card); border:2px solid var(--border); border-radius:10px; padding:12px 6px; text-align:center; transition:all .4s; box-shadow:0 1px 6px rgba(0,0,0,.04); }
+.sg-dd  { font-family:'Space Mono',monospace; font-size:12px; font-weight:700; margin-bottom:3px; }
+.sg-nm  { font-size:10px; color:var(--muted); margin-bottom:5px; line-height:1.4; }
+.sg-pos { font-family:'Space Mono',monospace; font-size:20px; font-weight:900; }
+
+.tbl { background:var(--card); border:2px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:12px; box-shadow:0 1px 6px rgba(0,0,0,.04); }
+.tbl-hd { display:grid; padding:9px 14px; background:var(--bg); border-bottom:1px solid var(--border); font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
+.tbl-row { display:grid; padding:11px 14px; border-bottom:1px solid var(--border); align-items:center; }
+.tbl-row:last-child { border-bottom:none; }
+.c4 { grid-template-columns:1fr 72px 82px 56px; }
+.in25 { background:rgba(208,16,48,.05); }
+.t-date { font-family:'Space Mono',monospace; font-size:13px; }
+.t-chg  { font-family:'Space Mono',monospace; font-size:13px; color:var(--red); font-weight:700; }
+.t-vol  { font-size:12px; color:var(--muted); }
+.bdg    { display:inline-block; padding:2px 7px; border-radius:4px; font-family:'Space Mono',monospace; font-size:9px; font-weight:700; }
+.b25    { background:rgba(230,168,0,.15); color:var(--yellow); }
+.bold   { background:rgba(0,0,0,.05); color:var(--muted); }
+.tbl-empty { padding:22px; text-align:center; color:var(--muted); font-size:14px; }
+
+.btn { width:100%; padding:15px; background:var(--card); border:2px solid var(--border); color:var(--muted); font-family:'Space Mono',monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; border-radius:10px; transition:all .2s; margin-bottom:20px; -webkit-appearance:none; box-shadow:0 1px 6px rgba(0,0,0,.04); }
+.btn:hover { border-color:var(--blue); color:var(--blue); }
+
+footer { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px; padding-top:14px; border-top:1px solid var(--border); }
+
+.loading { text-align:center; padding:80px 20px; font-family:'Space Mono',monospace; font-size:14px; color:var(--muted); letter-spacing:.1em; line-height:2.5; }
+.ld { display:inline-block; animation:blink 1.2s infinite; }
+.ld:nth-child(2){animation-delay:.2s} .ld:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:0}40%{opacity:1}}
+
+.err { background:#fff5f6; border:2px solid #f0b0bc; border-radius:10px; padding:22px; font-size:14px; color:var(--red); line-height:2; }
+.err-detail { font-size:12px; color:var(--muted); margin-top:8px; font-family:'Space Mono',monospace; }
+
+@media(max-width:480px) {
+  .sg { grid-template-columns:repeat(2,1fr); }
+  .pos-num { font-size:52px; }
+  .c4 { grid-template-columns:1fr 68px 72px 52px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">KOSPI <span>DD</span> MONITOR</div>
+    <div id="clock"></div>
+  </header>
+  <div id="app">
+    <div class="loading">데이터 불러오는 중<span class="ld">.</span><span class="ld">.</span><span class="ld">.</span></div>
+  </div>
+</div>
+
+<script>
+const P = { dropThresh:-0.6, volMa:10, ddSignal:5, rolling:25, peak52wLo:-5 };
+const STAGES = [
+  { dd:0, label:'정상',    pos:100, color:'#00aa55' },
+  { dd:3, label:'🟡 경계', pos:75,  color:'#e6a800' },
+  { dd:4, label:'🟠 위험', pos:50,  color:'#e05c00' },
+  { dd:5, label:'🔴 신호', pos:25,  color:'#d01030' },
+];
+
+function tick() {
+  const kst = new Date(Date.now() + (9*3600 - new Date().getTimezoneOffset()*60)*1000);
+  document.getElementById('clock').innerHTML =
+    kst.toISOString().slice(0,10) + '<br>' + kst.toISOString().slice(11,19) + ' KST';
+}
+setInterval(tick,1000); tick();
+
+// ── fetch: 여러 소스 순차 시도 ───────────────────────────
+async function fetchData() {
+  const errors = [];
+
+  // 방법 1: corsproxy.io + Yahoo Finance (최근 2년)
+  try {
+    const t2 = Math.floor(Date.now()/1000);
+    const t1 = t2 - 730*86400;
+    const yurl = `https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11?interval=1d&period1=${t1}&period2=${t2}`;
+    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(yurl)}`, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const r = json.chart.result[0];
+    const rows = [];
+    for (let i = 0; i < r.timestamp.length; i++) {
+      const c = r.indicators.quote[0].close[i];
+      const v = r.indicators.quote[0].volume[i];
+      if (c == null || v == null) continue;
+      rows.push({ date: new Date(r.timestamp[i]*1000).toISOString().slice(0,10), close:c, vol:v });
+    }
+    if (rows.length > 100) return rows.sort((a,b)=>a.date.localeCompare(b.date));
+  } catch(e) { errors.push('Yahoo+corsproxy: ' + e.message); }
+
+  // 방법 2: allorigins + Yahoo Finance
+  try {
+    const t2 = Math.floor(Date.now()/1000);
+    const t1 = t2 - 730*86400;
+    const yurl = `https://query2.finance.yahoo.com/v8/finance/chart/%5EKS11?interval=1d&period1=${t1}&period2=${t2}`;
+    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(yurl)}`, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const wrap = await res.json();
+    const json = JSON.parse(wrap.contents);
+    const r = json.chart.result[0];
+    const rows = [];
+    for (let i = 0; i < r.timestamp.length; i++) {
+      const c = r.indicators.quote[0].close[i];
+      const v = r.indicators.quote[0].volume[i];
+      if (c == null || v == null) continue;
+      rows.push({ date: new Date(r.timestamp[i]*1000).toISOString().slice(0,10), close:c, vol:v });
+    }
+    if (rows.length > 100) return rows.sort((a,b)=>a.date.localeCompare(b.date));
+  } catch(e) { errors.push('Yahoo+allorigins: ' + e.message); }
+
+  // 방법 3: thingproxy + stooq CSV
+  try {
+    const stooqUrl = 'https://stooq.com/q/d/l/?s=%5Ekospi&i=d';
+    const res = await fetch(`https://thingproxy.freeboard.io/fetch/${stooqUrl}`, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const csv = await res.text();
+    const rows = parseStooqCSV(csv);
+    if (rows.length > 100) return rows;
+  } catch(e) { errors.push('Stooq+thingproxy: ' + e.message); }
+
+  throw new Error(errors.join('\n'));
+}
+
+function parseStooqCSV(csv) {
+  const lines = csv.trim().split('\n');
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length < 6) continue;
+    const date  = cols[0].trim();
+    const close = parseFloat(cols[4]);
+    const vol   = parseFloat(cols[5]) || 1;
+    if (!date || isNaN(close)) continue;
+    rows.push({ date, close, vol });
+  }
+  return rows.reverse(); // stooq는 최신→과거 순
+}
+
+// ── 지표 계산 ────────────────────────────────────────────
+function calc(rows) {
+  const n = rows.length;
+  for (let i = 0; i < n; i++) {
+    rows[i].chg     = i > 0 ? (rows[i].close - rows[i-1].close) / rows[i-1].close * 100 : 0;
+    rows[i].prevVol = i > 0 ? rows[i-1].vol : rows[i].vol;
+    const vs = rows.slice(Math.max(0,i-P.volMa+1),i+1).map(r=>r.vol);
+    rows[i].volMA = vs.reduce((a,b)=>a+b,0)/vs.length;
+    const hi = Math.max(...rows.slice(Math.max(0,i-251),i+1).map(r=>r.close));
+    rows[i].p52w = (rows[i].close-hi)/hi*100;
+    const cs = rows.slice(Math.max(0,i-59),i+1).map(r=>r.close);
+    rows[i].ma60 = cs.reduce((a,b)=>a+b,0)/cs.length;
+    rows[i].isDD = i > 0 &&
+      rows[i].chg    <= P.dropThresh &&
+      rows[i].vol    >  rows[i].volMA &&
+      rows[i].vol    >  rows[i].prevVol;
+    rows[i].ddCnt = rows.slice(Math.max(0,i-P.rolling+1),i+1).filter(r=>r.isDD).length;
+  }
+  return rows;
+}
+
+function getStage(n) { let s=STAGES[0]; for(const st of STAGES) if(n>=st.dd) s=st; return s; }
+
+// ── 렌더 ─────────────────────────────────────────────────
+function render(rows) {
+  const lt=rows[rows.length-1], ddCnt=lt.ddCnt, p52w=lt.p52w, abvMA=lt.close>lt.ma60;
+  const filt=p52w<=P.peak52wLo, stage=filt?getStage(ddCnt):STAGES[0], pos=stage.pos;
+  document.documentElement.style.setProperty('--accent', stage.color);
+
+  const rec25=rows.slice(-25);
+  const recentDD=rows.filter(r=>r.isDD).slice(-20).reverse();
+
+  const dots=Array.from({length:7},(_,i)=>{
+    let c='dd-dot'; if(i<ddCnt) c+=i<2?' s1':i<3?' s2':' s3';
+    return `<div class="${c}"></div>`;
+  }).join('');
+
+  const sg=STAGES.map((s,i)=>{
+    const act=ddCnt>=s.dd&&(i===STAGES.length-1||ddCnt<STAGES[i+1].dd);
+    return `<div class="sg-item" style="border-color:${act?s.color:'var(--border)'};background:${act?s.color+'14':'var(--card)'}">
+      <div class="sg-dd" style="color:${s.color}">DD ${s.dd===0?'0~2':s.dd+'+'}</div>
+      <div class="sg-nm">${s.label}</div>
+      <div class="sg-pos" style="color:${s.color}">${s.pos}%</div>
+    </div>`;
+  }).join('');
+
+  const recentHtml=recentDD.length===0
+    ?`<div class="tbl-empty">최근 분산일 없음</div>`
+    :recentDD.map(r=>{
+      const in25=rec25.some(x=>x.date===r.date&&x.isDD);
+      return `<div class="tbl-row c4 ${in25?'in25':''}">
+        <div class="t-date">${r.date}</div>
+        <div class="t-chg">${r.chg.toFixed(2)}%</div>
+        <div class="t-vol">${(r.vol/1e4).toFixed(0)}만주</div>
+        <div><span class="bdg ${in25?'b25':'bold'}">${in25?'25일내':'이전'}</span></div>
+      </div>`;
+    }).join('');
+
+  document.getElementById('app').innerHTML = `
+    <div class="pos-card">
+      <div class="pos-label">현재 권장 포지션</div>
+      <div class="pos-row">
+        <div class="pos-num">${pos}</div><div class="pos-unit">%</div>
+      </div>
+      <div class="pos-desc">${pos===100?'포지션 전량 유지 · 위험 신호 없음':`포지션 ${pos}% 유지 · ${100-pos}% 현금 확보 권장`}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="stage-badge" style="color:${stage.color};border-color:${stage.color};background:${stage.color}14">
+          <div class="dot" style="background:${stage.color}"></div>${stage.label}
+        </div>
+        ${!filt?`<span style="font-size:12px;color:var(--muted)">52주 고점 ${p52w.toFixed(1)}% · 필터 미충족</span>`:''}
+        ${filt&&!abvMA?`<span style="font-size:12px;color:var(--orange)">⚠ MA60 이탈</span>`:''}
+      </div>
+      <div class="dd-bar">
+        <div class="dd-bar-lbl">DD 누적<br>(25일)</div>
+        <div class="dd-dots">${dots}</div>
+        <div class="dd-num">${ddCnt}</div>
+        <div class="dd-den">&nbsp;/ ${P.ddSignal}</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric">
+        <div class="m-lbl">KOSPI</div>
+        <div class="m-val" style="color:var(--blue)">${lt.close.toLocaleString('ko-KR',{maximumFractionDigits:0})}</div>
+        <div class="m-sub" style="color:${lt.chg>=0?'var(--green)':'var(--red)'}">${lt.chg>=0?'+':''}${lt.chg.toFixed(2)}%</div>
+      </div>
+      <div class="metric">
+        <div class="m-lbl">52주 고점</div>
+        <div class="m-val" style="color:${p52w<=-5?'var(--orange)':'var(--green)'}">${p52w.toFixed(1)}%</div>
+        <div class="m-sub">${p52w<=-5?'⚠ 필터 ON':'정상 범위'}</div>
+      </div>
+      <div class="metric">
+        <div class="m-lbl">MA60</div>
+        <div class="m-val" style="color:${abvMA?'var(--green)':'var(--red)'}">${abvMA?'위':'아래'}</div>
+        <div class="m-sub">${abvMA?'추세 유지':'⚠ 이탈'}</div>
+      </div>
+    </div>
+
+    <div class="sec">포지션 단계</div>
+    <div class="sg">${sg}</div>
+
+    <div class="sec">최근 분산일 (25거래일)</div>
+    <div class="tbl">
+      <div class="tbl-hd c4"><span>날짜</span><span>등락률</span><span>거래량</span><span>구간</span></div>
+      ${recentHtml}
+    </div>
+
+    <button class="btn" onclick="load()">↻ 새로고침</button>
+
+    <footer>
+      <span>기준: 하락 ${P.dropThresh}% / MA${P.volMa} / DD ${P.ddSignal}일</span>
+      <span>업데이트: ${lt.date}</span>
+    </footer>
+  `;
+}
+
+function renderErr(e) {
+  document.getElementById('app').innerHTML = `
+    <div class="err">
+      ⚠ 데이터 로드 실패<br>
+      인터넷 연결을 확인하고 다시 시도해주세요.
+      <div class="err-detail">${e.message.replace(/\n/g,'<br>')}</div>
+      <button class="btn" style="margin-top:16px" onclick="load()">↻ 다시 시도</button>
+    </div>`;
+}
+
+async function load() {
+  document.getElementById('app').innerHTML =
+    `<div class="loading">데이터 불러오는 중<span class="ld">.</span><span class="ld">.</span><span class="ld">.</span><br><span style="font-size:12px">최대 10초 소요</span></div>`;
+  try { render(calc(await fetchData())); }
+  catch(e) { renderErr(e); }
+}
+
+load();
+</script>
+</body>
+</html>
